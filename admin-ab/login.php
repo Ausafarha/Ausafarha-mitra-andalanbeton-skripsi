@@ -12,9 +12,26 @@ if (isLoggedIn()) {
 $error = '';
 $username = '';
 
+// Konfigurasi Login Throttle
+$max_attempts = 5;
+$lockout_time = 15 * 60; // 15 menit dalam detik
+
+// Inisialisasi session tracking percobaan login jika belum ada
+if (!isset($_SESSION['login_attempts'])) {
+    $_SESSION['login_attempts'] = 0;
+}
+if (!isset($_SESSION['lockout_time'])) {
+    $_SESSION['lockout_time'] = 0;
+}
+
+// Cek apakah sedang dalam masa pemblokiran (lockout)
+if (time() < $_SESSION['lockout_time']) {
+    $remaining_time = ceil(($_SESSION['lockout_time'] - time()) / 60);
+    $error = "⛔ Terlalu banyak percobaan login yang gagal. Akun/perangkat Anda diblokir sementara. Silakan coba lagi dalam $remaining_time menit.";
+}
 
 // Cek apakah session expired (dari redirect dashboard)
-if (isset($_GET['msg']) && $_GET['msg'] === 'session_expired') {
+if (isset($_GET['msg']) && $_GET['msg'] === 'session_expired' && empty($error)) {
     $error = '⏳ Sesi Anda telah berakhir. Silakan login kembali.';
 }
 
@@ -22,7 +39,8 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'session_expired') {
 if (empty($_SESSION['csrf_token']) || isset($_GET['refresh'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && time() >= $_SESSION['lockout_time']) {
     if (!verifyCsrf()) {
         $error = 'Token keamanan tidak valid. Silakan muat ulang halaman.';
     } else {
@@ -38,30 +56,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     [$username]
                 );
 
-            if ($user && password_verify($password, $user['password'])) {
-                // Login success
-                session_regenerate_id(true);
-                $_SESSION['admin_id']       = $user['id'];
-                $_SESSION['admin_name']     = $user['name'];
-                $_SESSION['admin_username'] = $user['username'];
-                $_SESSION['admin_role']     = $user['role'];
-                $_SESSION['admin_login_at'] = time();
+                if ($user && password_verify($password, $user['password'])) {
+                    // Login Berhasil -> Reset counter login attempts
+                    $_SESSION['login_attempts'] = 0;
+                    $_SESSION['lockout_time'] = 0;
 
-                // Update last login
-                Database::query("UPDATE users SET last_login = NOW() WHERE id = ?", [$user['id']]);
+                    session_regenerate_id(true);
+                    $_SESSION['admin_id']       = $user['id'];
+                    $_SESSION['admin_name']     = $user['name'];
+                    $_SESSION['admin_username'] = $user['username'];
+                    $_SESSION['admin_role']     = $user['role'];
+                    $_SESSION['admin_login_at'] = time();
 
-                // Log activity
-                Database::query(
-                    "INSERT INTO activity_logs (user_id, action, module, description, ip_address) VALUES (?,?,?,?,?)",
-                    [$user['id'], 'login', 'auth', 'User ' . $user['username'] . ' berhasil login', $_SERVER['REMOTE_ADDR'] ?? '']
-                );
+                    // Update last login
+                    Database::query("UPDATE users SET last_login = NOW() WHERE id = ?", [$user['id']]);
 
-                // Cek apakah ada redirect intent
-$redirect = $_SESSION['login_redirect'] ?? APP_URL . '/admin-ab/dashboard.php';
-unset($_SESSION['login_redirect']);
-redirect($redirect);
-           } else {
-                    $error = 'Username atau password salah.';
+                    // Log activity
+                    Database::query(
+                        "INSERT INTO activity_logs (user_id, action, module, description, ip_address) VALUES (?,?,?,?,?)",
+                        [$user['id'], 'login', 'auth', 'User ' . $user['username'] . ' berhasil login', $_SERVER['REMOTE_ADDR'] ?? '']
+                    );
+
+                    $redirect = $_SESSION['login_redirect'] ?? APP_URL . '/admin-ab/dashboard.php';
+                    unset($_SESSION['login_redirect']);
+                    redirect($redirect);
+                } else {
+                    // Login Gagal -> Tambah counter
+                    $_SESSION['login_attempts']++;
+                    $attempts_left = $max_attempts - $_SESSION['login_attempts'];
+
+                    if ($_SESSION['login_attempts'] >= $max_attempts) {
+                        $_SESSION['lockout_time'] = time() + $lockout_time;
+                        $error = '⛔ Batas percobaan login terlampaui. Akun Anda dikunci selama 15 menit ke depan.';
+                    } else {
+                        $error = "Username atau password salah. Sisa percobaan: $attempts_left kali.";
+                    }
                     sleep(1);
                 }
             } catch (PDOException $e) {
