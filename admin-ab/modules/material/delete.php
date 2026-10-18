@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/../../../config/database.php';
 require_once __DIR__ . '/../../../config/app.php';
+// Pastikan file helper cloudinary di-include di sini (sesuaikan jalurnya jika foldernya berbeda)
+require_once __DIR__ . '/../../../config/cloudinary.php'; // Contoh jalur file helper Cloudinary
+
 initSession();
 requireLogin();
 
@@ -27,15 +30,20 @@ if ($hasTransactions > 0) {
     setFlash('error', 'Material tidak dapat dihapus karena memiliki riwayat transaksi. Nonaktifkan material sebagai gantinya.');
     redirect(APP_URL . '/admin-ab/modules/material/index.php');
 }
+
 // Hapus dari Cloudinary jika image adalah URL Cloudinary
 if ($mat['image'] && str_contains($mat['image'], 'cloudinary.com')) {
-    // Extract public_id dari URL
-    $parts = explode('/upload/', $mat['image']);
-    $publicId = 'andalan-beton/products/' . pathinfo($parts[1], PATHINFO_FILENAME);
-    deleteFromCloudinary($publicId);
+    // Pastikan fungsi ini sudah ada di file cloudinary.php yang di-include di atas
+    if (function_exists('deleteFromCloudinary')) {
+        $parts = explode('/upload/', $mat['image']);
+        $publicId = 'andalan-beton/products/' . pathinfo($parts[1], PATHINFO_FILENAME);
+        deleteFromCloudinary($publicId);
+    }
 }
-// Delete image file
-if ($mat['image']) deleteFile($mat['image']);
+// Delete image file (jika ada fungsi delete lokal)
+if ($mat['image'] && function_exists('deleteFile')) {
+    deleteFile($mat['image']);
+}
 
 Database::delete('materials', 'id = ?', [$id]);
 logActivity('delete', 'materials', "Menghapus material: {$mat['name']}");
