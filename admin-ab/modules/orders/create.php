@@ -119,7 +119,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             logActivity('create', 'orders', "Membuat pesanan manual: {$orderNumber}");
-            setFlash('success', 'Pesanan baru berhasil dibuat dan stok barang otomatis terpotong.');
+            
+            // Pesan flash dinamis berdasarkan status awal
+            if (in_array($data['status'], ['completed', 'processing'])) {
+                setFlash('success', 'Pesanan baru berhasil dibuat dan stok barang otomatis terpotong.');
+            } else {
+                setFlash('success', 'Pesanan baru berhasil dibuat dengan status Menunggu Pembayaran. Stok belum terpotong.');
+            }
+            
             redirect(APP_URL . '/admin-ab/modules/orders/index.php');
         }
     }
