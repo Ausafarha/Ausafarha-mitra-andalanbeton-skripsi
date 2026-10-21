@@ -34,6 +34,7 @@ switch ($type) {
                 m.unit AS satuan,
                 si.supplier_name AS supplier,
                 si.invoice_number AS invoice,
+                COALESCE(si.notes, '-') AS catatan,
                 CASE WHEN m.type = 'raw' THEN '📦 Bahan Baku' ELSE '🏭 Produk Jadi' END AS tipe_material
             FROM stock_in si 
             JOIN materials m ON si.material_id=m.id
@@ -70,6 +71,8 @@ switch ($type) {
                 so.destination AS tujuan_pengiriman,
                 COALESCE(so.driver_name, '-') AS nama_driver,
                 COALESCE(so.vehicle_number, '-') AS no_kendaraan,
+                COALESCE(o.notes, so.notes, '-') AS catatan_pelanggan,
+                COALESCE(o.admin_notes, '-') AS catatan_admin,
                 CASE WHEN m.type = 'raw' THEN '📦 Bahan Baku' ELSE '🏭 Produk Jadi' END AS tipe_material
             FROM stock_out so 
             JOIN materials m ON so.material_id = m.id

@@ -15,6 +15,8 @@ $data = [
     'customer_phone'   => '',
     'customer_email'   => '',
     'delivery_address' => '',
+    'driver_name'      => '',
+    'vehicle_number'   => '',
     'notes'            => '',
     'status'           => 'completed', // Default langsung completed agar otomatis memotong stok & masuk barang keluar
     'items'            => []
@@ -30,6 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $data['delivery_address'] = post('delivery_address');
         $data['notes']            = post('notes') ?: null;
         $data['status']           = post('status') ?: 'completed';
+        $data['driver_name']      = post('driver_name') ?: null;
+        $data['vehicle_number']   = post('vehicle_number') ?: null;
         
         $materialIds = $_POST['material_ids'] ?? [];
         $quantities  = $_POST['quantities'] ?? [];
@@ -39,7 +43,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($data['customer_phone'])) $errors[] = 'Nomor HP pelanggan wajib diisi.';
         if (empty($data['delivery_address'])) $errors[] = 'Alamat pengiriman wajib diisi.';
         if (empty($materialIds))            $errors[] = 'Pilih minimal satu item material.';
+        if (in_array($data['status'], ['completed', 'processing'])) {
+         if (empty($data['driver_name']))    $errors[] = 'Nama driver wajib diisi saat pesanan diproses/selesai.';
+         if (empty($data['vehicle_number'])) $errors[] = 'Nomor kendaraan wajib diisi saat pesanan diproses/selesai.';
+     }
+        // Validasi Active Trip Warning (Peringatan Bentrok Armada)
+        if (in_array($data['status'], ['completed', 'processing']) && !empty($data['driver_name'])) {
+            $todayDate = date('Y-m-d');
+            
+            // Cek apakah driver sudah bertugas hari ini
+            $activeDriver = Database::fetchOne("
+                SELECT id FROM stock_out 
+                WHERE driver_name = ? AND out_date = ? 
+                LIMIT 1
+            ", [$data['driver_name'], $todayDate]);
 
+            if ($activeDriver) {
+                $errors[] = "⚠️ Peringatan Bentrok: Driver '{$data['driver_name']}' sudah tercatat aktif melakukan pengiriman tugas lain pada hari ini.";
+            }
+        }
+
+        if (in_array($data['status'], ['completed', 'processing']) && !empty($data['vehicle_number'])) {
+            $todayDate = date('Y-m-d');
+            
+            // Cek apakah kendaraan sudah bertugas hari ini
+            $activeVehicle = Database::fetchOne("
+                SELECT id FROM stock_out 
+                WHERE vehicle_number = ? AND out_date = ? 
+                LIMIT 1
+            ", [$data['vehicle_number'], $todayDate]);
+
+            if ($activeVehicle) {
+                $errors[] = "⚠️ Peringatan Bentrok: Kendaraan bernomor '{$data['vehicle_number']}' sudah ditugaskan untuk pengiriman lain pada hari ini.";
+            }
+        }
         // Validasi item & stok
         $orderItems = [];
         $totalAmount = 0;
@@ -105,15 +142,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     Database::query("UPDATE materials SET current_stock = current_stock - ? WHERE id = ?", [$item['quantity'], $item['material_id']]);
 
                     // Insert Logistik Barang Keluar
-                    Database::insert('stock_out', [
-                        'material_id'   => $item['material_id'],
-                        'order_id'      => $orderId,
-                        'quantity'      => $item['quantity'],
-                        'destination'   => $data['delivery_address'],
-                        'customer_name' => $data['customer_name'],
-                        'notes'         => "Otomatis dari Pesanan Manual #{$orderNumber}",
-                        'processed_by'  => $user['id'],
-                        'out_date'      => date('Y-m-d')
+                   Database::insert('stock_out', [
+                     'material_id'   => $item['material_id'],
+                     'order_id'      => $orderId,
+                     'quantity'      => $item['quantity'],
+                     'destination'   => $data['delivery_address'],
+                     'customer_name' => $data['customer_name'],
+                     'driver_name'   => $data['driver_name'],
+                     'vehicle_number'=> $data['vehicle_number'],
+                     'notes'         => "Otomatis dari Pesanan Manual #{$orderNumber}",
+                     'processed_by'  => $user['id'],
+                     'out_date'      => date('Y-m-d')
                     ]);
                 }
             }
@@ -222,20 +261,30 @@ include __DIR__ . '/../../partials/head.php';
 
     <div>
       <div class="card mb-20">
-        <div class="card-header"><div class="card-title">Pengaturan Pesanan</div></div>
+        <div class="card-header"><div class="card-title">Pengaturan Pesanan & Pengiriman</div></div>
         <div class="card-body">
-          <div class="form-group">
+          <div class="form-group mb-16">
             <label class="form-label">Status Pesanan</label>
             <select name="status" class="form-control">
               <option value="completed" selected>✅ Selesai (Langsung Potong Stok)</option>
               <option value="processing">🔄 Diproses</option>
               <option value="pending">⏳ Menunggu Pembayaran</option>
             </select>
-            <small style="color:var(--text-muted);display:block;margin-top:6px;font-size:12px;">
-              Memilih <b>Selesai</b> atau <b>Diproses</b> akan otomatis mengurangi stok & mencatatnya ke <b>Barang Keluar</b>.
-            </small>
           </div>
-          <button type="submit" class="btn btn-primary w-100" style="margin-top:10px;"><i class="fas fa-save"></i> Simpan Pesanan</button>
+
+          <div style="padding:12px;background:var(--bg-muted);border-radius:8px;margin-bottom:16px;border:1px solid var(--border);">
+            <div style="font-size:12.5px;font-weight:700;margin-bottom:8px;color:var(--brand-600);"><i class="fas fa-truck"></i> Informasi Pengemudi</div>
+            <div class="form-group mb-10">
+              <label class="form-label" style="font-size:12px;">Nama Driver <span>*</span></label>
+              <input type="text" name="driver_name" class="form-control" value="<?= htmlspecialchars($data['driver_name']??'') ?>" placeholder="Nama pengemudi">
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label" style="font-size:12px;">Nomor Kendaraan (PLAT) <span>*</span></label>
+              <input type="text" name="vehicle_number" class="form-control text-mono" value="<?= htmlspecialchars($data['vehicle_number']??'') ?>" placeholder="B 1234 CD">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100"><i class="fas fa-save"></i> Simpan Pesanan</button>
         </div>
       </div>
     </div>

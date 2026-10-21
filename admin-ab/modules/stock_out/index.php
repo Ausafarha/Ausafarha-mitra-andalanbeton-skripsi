@@ -58,12 +58,19 @@ include __DIR__.'/../../partials/head.php';
               <td style="font-size:13px;"><?=htmlspecialchars($row['driver_name']??'-')?></td>
               <td style="font-size:12px;" class="text-mono"><?=htmlspecialchars($row['vehicle_number']??'-')?></td>
               <td style="font-size:13px;"><?=htmlspecialchars($row['processed_by_name']??'-')?></td>
-              <td>
-                <div class="actions">
-                  <a href="<?=APP_URL?>/admin-ab/modules/stock_out/edit.php?id=<?=$row['id']?>" class="btn btn-sm btn-secondary"><i class="fas fa-edit"></i></a>
-                  <button onclick="confirmDelete('<?=APP_URL?>/admin-ab/modules/stock_out/delete.php?id=<?=$row['id']?>&token=<?=csrfToken()?>','distribusi ini')" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>
-                </div>
-              </td>
+<td>
+  <div class="actions">
+    <!-- Tombol Cetak Surat Jalan -->
+    <?php if ($row['order_id']): ?>
+      <a href="<?=APP_URL?>/admin-ab/modules/stock_out/print_sj.php?type=order&id=<?=$row['order_id']?>" target="_blank" class="btn btn-sm btn-primary" data-tooltip="Cetak Surat Jalan"><i class="fas fa-print"></i></a>
+      <a href="<?=APP_URL?>/admin-ab/modules/orders/view.php?id=<?=$row['order_id']?>" class="btn btn-sm btn-info" data-tooltip="Lihat Pesanan"><i class="fas fa-eye"></i></a>
+    <?php else: ?>
+      <a href="<?=APP_URL?>/admin-ab/modules/stock_out/print_sj.php?type=manual&id=<?=$row['id']?>" target="_blank" class="btn btn-sm btn-primary" data-tooltip="Cetak Surat Jalan"><i class="fas fa-print"></i></a>
+      <a href="<?=APP_URL?>/admin-ab/modules/stock_out/edit.php?id=<?=$row['id']?>" class="btn btn-sm btn-secondary" data-tooltip="Edit Manual"><i class="fas fa-edit"></i></a>
+      <button onclick="confirmDelete('<?=APP_URL?>/admin-ab/modules/stock_out/delete.php?id=<?=$row['id']?>&token=<?=csrfToken()?>','distribusi ini')" class="btn btn-sm btn-danger" data-tooltip="Hapus"><i class="fas fa-trash"></i></button>
+    <?php endif; ?>
+  </div>
+</td>
             </tr>
             <?php endforeach;?>
           </tbody>

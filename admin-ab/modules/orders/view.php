@@ -2,6 +2,7 @@
 require_once __DIR__.'/../../../config/database.php';
 require_once __DIR__.'/../../../config/app.php';
 initSession(); requireLogin();
+
 function renderAddressWithMap($address) {
     if (empty($address)) return '-';
     // Hanya ubah tautan jika berformat Google Maps (?q=lat,lng)
@@ -9,6 +10,7 @@ function renderAddressWithMap($address) {
     $replacement = '<br><a href="$1" target="_blank" class="btn btn-sm btn-outline" style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;color:#2563eb;border-color:#2563eb;"><i class="fas fa-hand-pointer"></i> Klik untuk Buka Lokasi di Google Maps</a>';
     return preg_replace($pattern, $replacement, htmlspecialchars($address, ENT_QUOTES, 'UTF-8'));
 }
+
 $id  = getInt('id');
 $ord = Database::fetchOne("SELECT o.*, u.name AS processed_by_name FROM orders o LEFT JOIN users u ON o.processed_by=u.id WHERE o.id=?",[$id]);
 if (!$ord){setFlash('error','Pesanan tidak ditemukan.');redirect(APP_URL.'/admin-ab/modules/orders/index.php');}
@@ -18,15 +20,26 @@ $pageTitle='Detail Pesanan #'.$ord['order_number'];
 if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_status'])) {
     if (!verifyCsrf()){setFlash('error','Token tidak valid.');}
     else {
-        $newStatus = post('status');
-        $adminNotes= post('admin_notes');
+        $newStatus     = post('status');
+        $adminNotes    = post('admin_notes');
+        $driverName    = post('driver_name');
+        $vehicleNumber = post('vehicle_number');
         $allowedStatuses = ['pending','processing','completed','rejected'];
+
         if (in_array($newStatus,$allowedStatuses)) {
             $user=currentUser();
             $oldStatus = $ord['status'];
 
-            // 1. KONDISI POTONG STOK: Dari status belum potong ke status potong (processing/completed)
+            // 1. KONDISI POTONG STOK & CATAT BARANG KELUAR: Dari status belum potong ke status potong (processing/completed)
             if (in_array($newStatus, ['processing', 'completed']) && !in_array($oldStatus, ['processing', 'completed'])) {
+                
+                // Validasi input Driver & Plat Nomor jika pesanan mau diproses/dikirim
+                if (empty($driverName) || empty($vehicleNumber)) {
+                    setFlash('error', 'Nama Driver dan Nomor Kendaraan wajib diisi saat memproses pengiriman pesanan.');
+                    redirect(APP_URL.'/admin-ab/modules/orders/view.php?id='.$id);
+                    exit;
+                }
+
                 $items = Database::fetchAll("SELECT * FROM order_items WHERE order_id = ?", [$id]);
                 $hasError = false;
 
@@ -46,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_status'])) {
                     exit;
                 }
 
-                // Potong stok dan insert ke stock_out
+                // Potong stok dan insert ke stock_out lengkap dengan driver & vehicle_number
                 foreach ($items as $item) {
                     Database::query("UPDATE materials SET current_stock = current_stock - ? WHERE id = ?", [$item['quantity'], $item['material_id']]);
 
@@ -56,8 +69,8 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_status'])) {
                         'quantity'      => $item['quantity'],
                         'destination'   => $ord['delivery_address'] ?: ("Pengiriman pesanan " . $ord['order_number']),
                         'customer_name' => $ord['customer_name'],
-                        'driver_name'   => null,
-                        'vehicle_number'=> null,
+                        'driver_name'   => $driverName,
+                        'vehicle_number'=> $vehicleNumber,
                         'notes'         => "Otomatis dari pesanan #{$ord['order_number']}",
                         'processed_by'  => $user['id'],
                         'out_date'      => date('Y-m-d')
@@ -87,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_status'])) {
             ],'id=?',[$id]);
             
             logActivity('update','orders',"Mengubah status pesanan {$ord['order_number']} menjadi {$newStatus}");
-            setFlash('success','Status pesanan berhasil diperbarui dan sinkronisasi stok disesuaikan.');
+            setFlash('success','Status pesanan berhasil diperbarui dan sinkronisasi stok serta driver berhasil dicatat.');
             redirect(APP_URL.'/admin-ab/modules/orders/view.php?id='.$id);
         }
     }
@@ -107,7 +120,12 @@ include __DIR__.'/../../partials/head.php';
     <a href="<?=APP_URL?>/admin-ab/modules/orders/index.php" class="btn btn-ghost btn-sm" style="margin-bottom:8px;"><i class="fas fa-arrow-left"></i> Kembali</a>
     <h2 style="font-size:20px;font-weight:800;">Pesanan <?=htmlspecialchars($ord['order_number'])?></h2>
   </div>
-  <?=orderStatusLabel($ord['status'])?>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <?php if(in_array($ord['status'], ['processing', 'completed'])): ?>
+      <a href="<?=APP_URL?>/admin-ab/modules/stock_out/print_sj.php?type=order&id=<?=$ord['id']?>" target="_blank" class="btn btn-secondary"><i class="fas fa-print"></i> Cetak Surat Jalan</a>
+    <?php endif; ?>
+    <?=orderStatusLabel($ord['status'])?>
+  </div>
 </div>
 
 <div class="grid" style="grid-template-columns:2fr 1fr;gap:20px;">
@@ -128,7 +146,6 @@ include __DIR__.'/../../partials/head.php';
         </div>
 
         <?php
-        // Ekstrak koordinat lat & lng dari teks alamat jika ada
         preg_match('/maps\.google\.com\/\?q=(-?\d+\.\d+),(-?\d+\.\d+)/', $ord['delivery_address'], $matches);
         $hasCoords = !empty($matches[1]) && !empty($matches[2]);
         ?>
@@ -182,25 +199,62 @@ include __DIR__.'/../../partials/head.php';
     </div>
   </div>
 
-  <!-- Status Update -->
+  <!-- Status Update & Pengiriman -->
   <div>
     <div class="card mb-20">
-      <div class="card-header"><div class="card-title">Perbarui Status</div></div>
+      <div class="card-header"><div class="card-title">Perbarui Status & Pengiriman</div></div>
       <div class="card-body">
         <form method="POST">
           <?=csrfField()?>
           <input type="hidden" name="update_status" value="1">
           <div class="form-group">
             <label class="form-label">Status Pesanan</label>
-            <select name="status" class="form-control">
+            <select name="status" class="form-control" id="order-status-select">
               <?php foreach(['pending'=>'⏳ Menunggu','processing'=>'🔄 Diproses','completed'=>'✅ Selesai','rejected'=>'❌ Ditolak'] as $val=>$lbl):?>
                 <option value="<?=$val?>" <?=$ord['status']===$val?'selected':''?>><?=$lbl?></option>
               <?php endforeach;?>
             </select>
           </div>
+
+        <?php
+          // Ambil daftar riwayat driver dan kendaraan unik yang pernah bertugas untuk autocomplete
+          $existingDrivers = Database::fetchAll("SELECT DISTINCT driver_name FROM stock_out WHERE driver_name IS NOT NULL ORDER BY driver_name");
+          $existingVehicles = Database::fetchAll("SELECT DISTINCT vehicle_number FROM stock_out WHERE vehicle_number IS NOT NULL ORDER BY vehicle_number");
+          
+          // Ambil data stock_out yang terikat dengan pesanan ini (jika sudah ada)
+          $currentLog = Database::fetchOne("SELECT driver_name, vehicle_number FROM stock_out WHERE order_id = ? LIMIT 1", [$id]);
+          $savedDriver = $currentLog['driver_name'] ?? '';
+          $savedVehicle = $currentLog['vehicle_number'] ?? '';
+          ?>
+
+          <!-- Section Driver & Plat Nomor (Wajib diisi jika diproses/selesai) -->
+          <div id="driver-info-section" style="padding:12px;background:var(--bg-muted);border-radius:8px;margin-bottom:16px;">
+            <div style="font-size:12.5px;font-weight:700;margin-bottom:8px;color:var(--brand-600);"><i class="fas fa-truck"></i> Informasi Pengemudi</div>
+            
+            <div class="form-group mb-10">
+              <label class="form-label" style="font-size:12px;">Nama Driver <span>*</span></label>
+              <input type="text" name="driver_name" class="form-control" list="driver-list" value="<?= htmlspecialchars($savedDriver) ?>" placeholder="Pilih atau ketik nama driver">
+              <datalist id="driver-list">
+                <?php foreach($existingDrivers as $d): ?>
+                  <option value="<?= htmlspecialchars($d['driver_name']) ?>">
+                <?php endforeach; ?>
+              </datalist>
+            </div>
+
+            <div class="form-group mb-0">
+              <label class="form-label" style="font-size:12px;">Nomor Plat Kendaraan <span>*</span></label>
+              <input type="text" name="vehicle_number" class="form-control text-mono" list="vehicle-list" value="<?= htmlspecialchars($savedVehicle) ?>" placeholder="B 1234 CD">
+              <datalist id="vehicle-list">
+                <?php foreach($existingVehicles as $v): ?>
+                  <option value="<?= htmlspecialchars($v['vehicle_number']) ?>">
+                <?php endforeach; ?>
+              </datalist>
+            </div>
+          </div>
+
           <div class="form-group">
             <label class="form-label">Catatan Admin</label>
-            <textarea name="admin_notes" class="form-control" rows="4" placeholder="Catatan internal..."><?=htmlspecialchars($ord['admin_notes']??'')?></textarea>
+            <textarea name="admin_notes" class="form-control" rows="3" placeholder="Catatan internal..."><?=htmlspecialchars($ord['admin_notes']??'')?></textarea>
           </div>
           <button type="submit" class="btn btn-primary w-100"><i class="fas fa-save"></i> Perbarui Status</button>
         </form>
