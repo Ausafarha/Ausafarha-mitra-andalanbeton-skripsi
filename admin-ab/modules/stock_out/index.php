@@ -11,7 +11,7 @@ if ($matId){$where[]="so.material_id=?";$params[]=$matId;}
 if ($dateFrom){$where[]="so.out_date>=?";$params[]=$dateFrom;}
 if ($dateTo){$where[]="so.out_date<=?";$params[]=$dateTo;}
 $whereStr=implode(' AND ',$where);
-$sql="SELECT so.*, m.name AS material_name, m.unit, u.name AS processed_by_name FROM stock_out so JOIN materials m ON so.material_id=m.id LEFT JOIN users u ON so.processed_by=u.id WHERE $whereStr ORDER BY so.out_date DESC, so.id DESC";
+$sql="SELECT so.*, m.name AS material_name, m.unit, u.name AS processed_by_name, o.order_number FROM stock_out so JOIN materials m ON so.material_id=m.id LEFT JOIN users u ON so.processed_by=u.id LEFT JOIN orders o ON so.order_id=o.id WHERE $whereStr ORDER BY so.out_date DESC, so.id DESC";
 $paginated=paginate($sql,$params,$page);
 $materials=Database::fetchAll("SELECT id,name,unit FROM materials WHERE is_active=true ORDER BY name");
 $totalOut=Database::fetchColumn("SELECT COALESCE(SUM(so.quantity),0) FROM stock_out so JOIN materials m ON so.material_id=m.id WHERE $whereStr",$params);
@@ -45,20 +45,34 @@ include __DIR__.'/../../partials/head.php';
     <?php else:?>
       <div class="table-responsive">
         <table class="table">
-          <thead><tr><th>No</th><th>Tanggal</th><th>Material</th><th>Jumlah</th><th>Pelanggan</th><th>Tujuan</th><th>Driver</th><th>Kendaraan</th><th>Oleh</th><th>Aksi</th></tr></thead>
+          <thead><tr><th>No</th><th>Tgl. Kirim</th><th>Material</th><th>Jumlah</th><th>Pelanggan</th><th>Tujuan</th><th>Driver</th><th>Kendaraan</th><th>Oleh</th><th>Aksi</th></tr></thead>
           <tbody>
-            <?php foreach($paginated['items'] as $i=>$row):?>
-            <tr>
+<?php foreach($paginated['items'] as $i=>$row):?>
+            <?php 
+                // Pewarnaan latar baris dan label referensi ringkas tanpa kolom tambahan
+                $rowStyle = '';
+                $badgeRef = '';
+                if (!empty($row['order_id'])) {
+                    if (str_starts_with($row['order_number'] ?? '', 'ORD-2026-')) {
+                        $rowStyle = 'background-color: #e0f2fe;'; // Biru muda cerah (Online Web)
+                        $badgeRef = '<br><span style="font-size:10.5px;color:#0369a1;font-weight:600;"><i class="fas fa-globe"></i> '.htmlspecialchars($row['order_number']).'</span>';
+                    } else {
+                        $rowStyle = 'background-color: #dcfce7;'; // Hijau muda cerah (Manual Admin)
+                        $badgeRef = '<br><span style="font-size:10.5px;color:#15803d;font-weight:600;"><i class="fas fa-user-edit"></i> '.htmlspecialchars($row['order_number']).'</span>';
+                    }
+                }
+            ?>
+            <tr style="<?= $rowStyle ?>">
               <td style="color:var(--text-muted);font-size:12px;"><?=($page-1)*PER_PAGE+$i+1?></td>
-              <td style="font-size:13px;"><?=formatDate($row['out_date'])?></td>
+              <td style="font-size:13px;font-weight:600;"><?=formatDate($row['out_date'])?></td>
               <td style="font-weight:600;font-size:13.5px;"><?=htmlspecialchars($row['material_name'])?></td>
               <td style="font-weight:700;color:var(--danger);"><?=formatNumber($row['quantity'])?> <span style="font-size:12px;font-weight:400;color:var(--text-muted);"><?=$row['unit']?></span></td>
-              <td style="font-size:13px;"><?=htmlspecialchars($row['customer_name']??'-')?></td>
-<td style="font-size:13px;max-width:160px;" class="truncate"><?=htmlspecialchars($row['destination']??'-')?></td>
+              <td style="font-size:13px;"><?=htmlspecialchars($row['customer_name']??'-')?><?=$badgeRef?></td>
+              <td style="font-size:13px;max-width:160px;" class="truncate"><?=htmlspecialchars($row['destination']??'-')?></td>
               <td style="font-size:13px;"><?=htmlspecialchars($row['driver_name']??'-')?></td>
               <td style="font-size:12px;" class="text-mono"><?=htmlspecialchars($row['vehicle_number']??'-')?></td>
               <td style="font-size:13px;"><?=htmlspecialchars($row['processed_by_name']??'-')?></td>
-<td>
+              <td>
   <div class="actions">
     <!-- Tombol Cetak Surat Jalan -->
     <?php if ($row['order_id']): ?>

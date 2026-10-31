@@ -5,22 +5,26 @@
 
 .public-header {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  max-width: 1200px;
+  margin: 0 auto;
   z-index: 100;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border);
-  height: 80px;
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(235, 13, 13, 0.1);
+  height: 60px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 48px;
+  padding: 0 24px;
 }
 
 [data-theme="dark"] .public-header {
-  background: rgba(17, 24, 39, 0.95);
+  background: rgba(6, 28, 1, 0.95);
 }
 
 /* Logo area */
@@ -50,6 +54,7 @@
 }
 
 .public-header > a .company-name {
+  font-family: 'Archivo', sans-serif;
   font-size: 16px;
   font-weight: 800;
   color: var(--text-primary);
@@ -71,7 +76,12 @@
   margin-right: 16px;
 }
 
+.public-nav #theme-toggle {
+  margin-right: 8px;
+}
+
 .public-nav a {
+  font-family: 'Archivo', sans-serif;
   padding: 8px 16px;
   border-radius: var(--radius-md);
   font-size: 14px;
@@ -80,15 +90,38 @@
   transition: all var(--transition);
 }
 
-.public-nav a:hover,
-.public-nav a.active {
+.public-nav a:hover {
   color: var(--text-brand);
   background: var(--brand-50);
+}
+
+[data-theme="dark"] .public-nav a:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.public-nav a.active {
+  color: #fff;
+  background: #00A859;
+}
+
+[data-theme="dark"] #pub-header .public-nav a.active,
+[data-theme="dark"] #pub-header .public-nav .btn {
+  background: #4CAF50 !important;
+  border-color: #4CAF50 !important;
+}
+
+[data-theme="dark"] .public-nav .btn {
+  background: #1F8606 !important;
+  border-color: #1F8606 !important;
 }
 
 .public-nav .btn {
   margin-left: 8px;
   padding: 8px 18px;
+  background: #00A859;
+  border-color: #00A859;
+  color: #fff;
 }
 
 /* Tombol hamburger - default hidden */
@@ -96,81 +129,100 @@
   display: none;
 }
 
+#profil-page .hero h1,
+#produk-page .hero h1,
+#galeri-page .hero h1,
+#kontak-page .hero h1,
+#pesan-page .hero h1 {
+  font-family: 'Oswald', sans-serif;
+}
+
 /* Mobile mode */
 @media (max-width: 768px) {
+  /* 1. HEADER */
   .public-header {
-    padding: 0 20px;
-    height: 70px;
+    position: fixed !important;
+    top: 12px !important;
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important; 
+    height: 64px !important;
+    border-radius: 20px !important;
+    padding: 0 !important; /* KUNCI: Hapus padding header */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    box-sizing: border-box !important;
   }
 
   .public-header > a {
-    gap: 10px;
-  }
-
-  .public-header > a > div:first-child {
-    width: 36px;
-    height: 36px;
-    font-size: 14px;
-  }
-
-  .public-header > a .company-name {
-    font-size: 14px;
-  }
-
-  .public-header > a .company-tagline {
-    font-size: 10px;
+    padding-left: 16px !important; /* Padding dipindah ke logo */
+    max-width: calc(100% - 50px) !important;
   }
 
   .nav-mobile-toggle {
+    margin-right: 16px !important; /* Padding dipindah ke hamburger */
     display: flex !important;
-    align-items: center;
-    justify-content: center;
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 8px;
-    color: var(--text-primary);
-    margin-left: auto;
+    align-items: center !important;
+    justify-content: center !important;
+    background: none !important;
+    border: none !important;
+    font-size: 24px !important;
+    color: var(--text-primary) !important;
   }
 
+  /* 2. MENU DROPDOWN (Nempel & Selebar Header) */
   .public-nav {
-    display: none;
-    position: fixed;
-    top: 70px;
-    left: 0;
-    right: 0;
-    background: var(--bg-surface);
-    flex-direction: column;
-    padding: 0;
-    margin: 0;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    z-index: 999;
-    gap: 0;
+    display: none !important;
+    position: absolute !important;
+    top: 100% !important; /* Pas di ujung bawah header */
+    left: 0 !important; /* Nempel kiri header */
+    right: 0 !important; /* Nempel kanan header */
+    width: 100% !important; /* Paksa selebar header */
+    margin: 8px 0 0 0 !important; /* Jarak 8px dari header */
+    background: var(--bg-surface) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15) !important;
+    flex-direction: column !important;
+    padding: 8px 0 !important; 
+    box-sizing: border-box !important;
+    z-index: 999 !important;
   }
 
   .public-nav.open {
     display: flex !important;
-    padding: 16px 20px;
   }
 
+  /* 3. ISI MENU (Teks & Tombol) */
   .public-nav a {
-    width: 100%;
-    padding: 12px 0;
-    border-bottom: 1px solid var(--border);
-    border-radius: 0;
-    margin: 0;
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    padding: 16px 24px !important; /* Jarak kiri-kanan teks */
+    margin: 0 !important;
+    border-bottom: 1px solid var(--border) !important;
+    text-align: left !important;
+    box-sizing: border-box !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    color: var(--text-primary) !important;
   }
 
-  .public-nav a:last-child {
-    border-bottom: none;
+  .public-nav a:last-of-type {
+    border-bottom: none !important;
   }
 
+  /* Tombol Pesan Sekarang */
   .public-nav .btn {
-    width: 100%;
-    margin-left: 0 !important;
-    margin-top: 10px;
-    text-align: center;
+    width: calc(100% - 48px) !important; /* 24px kiri + 24px kanan */
+    margin: 16px 24px !important;
+    padding: 12px !important;
+    border-radius: 8px !important;
+    justify-content: center !important;
+    color: #fff !important;
+  }
+
+  .public-nav #theme-toggle {
+    margin: 8px auto !important;
   }
 }

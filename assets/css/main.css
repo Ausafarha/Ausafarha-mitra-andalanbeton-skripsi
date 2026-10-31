@@ -4,7 +4,7 @@
    ============================================================ */
 
 /* Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&family=Archivo:wght@600;700;800&family=Oswald:wght@600;700&display=swap');
 
 /* Base */
 @import url('base/variables.css');
@@ -27,10 +27,14 @@
 @import url('layouts/responsive.css');
 
 /* Pages */
+
 @import url('pages/hero.css');
 @import url('pages/product-card.css');
 @import url('pages/feature.css');
 @import url('pages/gallery.css');
+@import url('pages/beranda.css');
+@import url('pages/produk.css');
+@import url('pages/pesan.css');
 
 /* Utility Classes - tetap di sini karena kecil */
 .section {
@@ -179,7 +183,7 @@
   top: 50%;
   transform: translateY(-50%);
   color: #aaa;
-  pointer-events: none; /* biar tidak ganggu klik input */
+  pointer-events: none;
 }
 
 .empty-state {
@@ -347,4 +351,40 @@
   height: 1px;
   background: var(--border);
   margin: 20px 0;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--brand-500, #22c55e);
+  border-radius: 10px;
+  border: 2px solid transparent;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brand-700, #15803d);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--brand-500, #22c55e) transparent;
+}
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }

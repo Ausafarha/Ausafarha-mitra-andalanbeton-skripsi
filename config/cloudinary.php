@@ -38,7 +38,7 @@ function uploadToCloudinary($file, $folder = 'products') {
     
     try {
         $result = $cloudinary->uploadApi()->upload($file['tmp_name'], [
-            'folder' => "andalan-beton/{$folder}",
+            'folder' => "mitra-andalanbeton/{$folder}",
             'allowed_formats' => ['jpg', 'jpeg', 'png', 'webp'],
             'max_bytes' => 5 * 1024 * 1024
         ]);

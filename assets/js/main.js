@@ -127,7 +127,6 @@ const Modal = (() => {
     document.body.style.overflow = '';
   }
 
-  // ESC key
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeAll();
   });
@@ -349,10 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initFlashAlerts();
   initTooltips();
 
-  // Theme toggle button
   document.getElementById('theme-toggle')?.addEventListener('click', ThemeManager.toggle);
-
-// Mobile menu toggle handled by onclick in HTML (public_head.php)
 });
 
 // ── Expose globals ─────────────────────────────────────────
@@ -362,3 +358,21 @@ window.confirmDelete = confirmDelete;
 window.submitForm    = submitForm;
 window.formatRupiah  = formatRupiah;
 window.debounce      = debounce;
+
+// ── Hero Background Slider ─────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+  const sliderContainers = document.querySelectorAll('.hero-slides');
+
+  sliderContainers.forEach(function (container) {
+    const slides = container.querySelectorAll('.hero-slide');
+    if (slides.length <= 1) return;
+
+    let current = 0;
+
+    setInterval(function () {
+      slides[current].classList.remove('active');
+      current = (current + 1) % slides.length;
+      slides[current].classList.add('active');
+    }, 5000);
+  });
+});

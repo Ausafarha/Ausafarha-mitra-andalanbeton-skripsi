@@ -39,10 +39,16 @@ try {
 } catch(Exception $e) { $lowStock = 0; }
 ?>
 <aside class="sidebar" id="sidebar">
+  <?php $cp = getCompanyProfile(); ?>
   <div class="sidebar-logo">
-    <div class="sidebar-logo-icon">AB</div>
+    <?php if (!empty($cp['logo'])): ?>
+      <img src="<?= uploadUrl($cp['logo']) ?>" alt="Logo" class="sidebar-logo-icon" style="object-fit: contain; background: transparent; padding: 2px; flex-shrink: 0;">
+    <?php else: ?>
+      <div class="sidebar-logo-icon">AB</div>
+    <?php endif; ?>
+    
     <div class="sidebar-logo-text">
-      <div class="sidebar-logo-name">Andalan Beton</div>
+      <div class="sidebar-logo-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Andalan Beton</div>
       <div class="sidebar-logo-sub">Admin Panel</div>
     </div>
   </div>
@@ -100,6 +106,17 @@ try {
     <a href="<?= APP_URL ?>/admin-ab/modules/settings/index.php" class="nav-item <?= isActive('settings') ?>">
       <i class="fas fa-cog"></i>
       <span>Pengaturan</span>
+    </a>
+    
+
+    <a href="<?= APP_URL ?>/admin-ab/modules/drivers/index.php" class="nav-item <?= isActive('drivers', ['create', 'edit']) ?>">
+      <i class="fas fa-id-card"></i>
+      <span>Data Supir</span>
+    </a>
+
+    <a href="<?= APP_URL ?>/admin-ab/modules/vehicles/index.php" class="nav-item <?= isActive('vehicles', ['create', 'edit']) ?>">
+      <i class="fas fa-truck"></i>
+      <span>Data Kendaraan</span>
     </a>
   </nav>
 

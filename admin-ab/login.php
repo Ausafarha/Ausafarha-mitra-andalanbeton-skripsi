@@ -99,6 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && time() >= $_SESSION['lockout_time']
         }
     }
 }
+$cp = getCompanyProfile(); // <--- TAMBAHKAN INI
 ?>
 <!DOCTYPE html>
 <html lang="id" data-theme="light">
@@ -201,9 +202,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && time() >= $_SESSION['lockout_time']
   <!-- Left Panel -->
   <div class="login-left">
     <div class="login-brand">
-      <div class="login-brand-icon">AB</div>
-      <h2>PT MITRA ANDALAN BETON PANTURA</h2>
-      <p>Industry Readymix dan Precast</p>
+      <?php if (!empty($cp['logo'])): ?>
+        <div class="login-brand-icon" style="padding: 6px;">
+          <img src="<?= uploadUrl($cp['logo']) ?>" alt="Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 6px;">
+        </div>
+      <?php else: ?>
+        <div class="login-brand-icon">AB</div>
+      <?php endif; ?>
+      <h2>Andalan Beton</h2>
+      <p>Industri Readymix dan Precast</p>
     </div>
 
     <div class="login-features">

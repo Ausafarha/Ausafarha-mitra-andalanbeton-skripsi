@@ -51,7 +51,18 @@ include __DIR__.'/../../partials/head.php';
     <?php else:?>
       <div class="table-responsive">
         <table class="table">
-          <thead><tr><th>No. Pesanan</th><th>Pelanggan</th><th>HP</th><th>Total</th><th>Status</th><th>Tanggal</th><th>Aksi</th></tr></thead>
+          <thead>
+            <tr>
+              <th>No. Pesanan</th>
+              <th>Pelanggan</th>
+              <th>HP</th>
+              <th>Total</th>
+              <th>Status</th>
+              <th>Tgl. Kirim</th> <!-- Kolom baru tanggal pengiriman -->
+              <th>Tgl. Pesan</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
           <tbody>
             <?php foreach($paginated['items'] as $ord):?>
             <tr>
@@ -60,7 +71,11 @@ include __DIR__.'/../../partials/head.php';
               <td style="font-size:13px;"><?=htmlspecialchars($ord['customer_phone'])?></td>
               <td style="font-weight:700;font-size:13.5px;"><?=formatRupiah($ord['total_amount'])?></td>
               <td><?=orderStatusLabel($ord['status'])?></td>
-              <td style="font-size:12.5px;color:var(--text-muted);"><?=formatDate($ord['created_at'],'d M Y H:i')?></td>
+              <!-- Menampilkan Tanggal Pengiriman -->
+              <td style="font-size:12.5px;font-weight:600;color:var(--brand-600);">
+                <?= !empty($ord['delivery_date']) ? date('d M Y', strtotime($ord['delivery_date'])) : '-' ?>
+              </td>
+              <td style="font-size:12px;color:var(--text-muted);"><?=formatDate($ord['created_at'],'d M Y H:i')?></td>
               <td>
                 <div class="actions">
                   <a href="<?=APP_URL?>/admin-ab/modules/orders/view.php?id=<?=$ord['id']?>" class="btn btn-sm btn-primary" data-tooltip="Detail"><i class="fas fa-eye"></i></a>
