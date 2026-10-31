@@ -283,9 +283,7 @@ $cp = getCompanyProfile(); // <--- TAMBAHKAN INI
       </button>
     </form>
 
-    <p style="margin-top: 24px; font-size: 12.5px; text-align: center; color: var(--text-muted);">
-      <a href="<?= APP_URL ?>/" style="color: var(--text-brand);">← Kembali ke Website</a>
-    </p>
+    
   </div>
 </div>
 

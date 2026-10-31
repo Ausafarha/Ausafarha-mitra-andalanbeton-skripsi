@@ -175,71 +175,7 @@ ORDER BY 1
         ", $bParams);
         break;
 
-       case 'orders':
-        $reportTitle = 'Rekap Pesanan';
-        $reportData = Database::fetchAll("
-            SELECT 
-                o.order_number AS nomor,
-                o.customer_name AS pelanggan,
-                o.customer_phone AS hp,
-                COALESCE((
-                    SELECT STRING_AGG(CONCAT(m.name, ' (', oi.quantity, ' ', m.unit, ')'), ', ')
-                    FROM order_items oi
-                    JOIN materials m ON oi.material_id = m.id
-                    WHERE oi.order_id = o.id
-                ), '-') AS produk_dibeli,
-                o.created_at AS tgl_pesan,
-                CONCAT(o.delivery_date::text, ' ', COALESCE(o.delivery_time::text, '00:00')) AS tgl_kirim,
-                o.total_amount AS total,
-                o.status
-            FROM orders o
-            WHERE DATE(o.created_at) BETWEEN ? AND ?
-            ORDER BY o.created_at DESC
-        ", [$dateFrom, $dateTo]);
-        
-        $summary['total_revenue'] = (float)Database::fetchColumn("
-            SELECT COALESCE(SUM(total_amount),0) FROM orders 
-            WHERE status = 'completed' AND DATE(created_at) BETWEEN ? AND ?", [$dateFrom, $dateTo]);
-        
-        $summary['total_orders'] = (int)Database::fetchColumn("
-            SELECT COUNT(*) FROM orders 
-            WHERE DATE(created_at) BETWEEN ? AND ?", [$dateFrom, $dateTo]);
-        
-        $summary['completed_orders'] = (int)Database::fetchColumn("
-            SELECT COUNT(*) FROM orders 
-            WHERE status = 'completed' AND DATE(created_at) BETWEEN ? AND ?", [$dateFrom, $dateTo]);
-        
-        $summary['pending_orders'] = (int)Database::fetchColumn("
-            SELECT COUNT(*) FROM orders 
-            WHERE status = 'pending' AND DATE(created_at) BETWEEN ? AND ?", [$dateFrom, $dateTo]);
-        
-        $summary['avg_order'] = $summary['completed_orders'] > 0 ? 
-            round($summary['total_revenue'] / $summary['completed_orders']) : 0;
-        break;
-
-    case 'product_sales':
-        $reportTitle = 'Laporan Penjualan per Produk';
-        $reportData = Database::fetchAll("
-            SELECT 
-                m.name AS produk,
-                mc.name AS kategori,
-                m.unit,
-                COALESCE(SUM(oi.quantity),0) AS qty_terjual,
-                COALESCE(SUM(oi.subtotal),0) AS total_pendapatan
-            FROM order_items oi
-            JOIN materials m ON oi.material_id = m.id
-            LEFT JOIN material_categories mc ON m.category_id = mc.id
-            JOIN orders o ON oi.order_id = o.id
-            WHERE o.status = 'completed' 
-                AND DATE(o.created_at) BETWEEN ? AND ?
-            GROUP BY m.id, m.name, m.unit, mc.name
-            ORDER BY total_pendapatan DESC
-        ", [$dateFrom, $dateTo]);
-        
-        $summary['total_revenue'] = array_sum(array_column($reportData, 'total_pendapatan'));
-        $summary['total_qty']     = array_sum(array_column($reportData, 'qty_terjual'));
-        $summary['total_products']= count($reportData);
-        break;
+      
 
     case 'stock_summary':
         $reportTitle = 'Ringkasan Stok Material';
@@ -409,8 +345,7 @@ include __DIR__.'/../../partials/head.php';
                 <select name="type" class="form-control" id="report-type">
                     <option value="stock_in"      <?=$type==='stock_in'     ?'selected':''?>>📥 Barang Masuk</option>
                     <option value="stock_out"     <?=$type==='stock_out'    ?'selected':''?>>📤 Barang Keluar (Detail Transaksi)</option>
-                    <option value="orders"        <?=$type==='orders'       ?'selected':''?>>📋 Pesanan</option>
-                    <option value="product_sales" <?=$type==='product_sales'?'selected':''?>>💰 Penjualan per Produk</option>
+                    
                     <option value="stock_summary" <?=$type==='stock_summary'?'selected':''?>>📊 Ringkasan Stok</option>
                 </select>
             </div>

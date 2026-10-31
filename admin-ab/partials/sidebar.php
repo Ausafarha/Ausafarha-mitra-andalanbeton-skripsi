@@ -98,10 +98,7 @@ try {
       <span>Laporan</span>
     </a>
 
-    <a href="<?= APP_URL ?>/admin-ab/modules/gallery/index.php" class="nav-item <?= isActive('gallery', ['create', 'edit']) ?>">
-      <i class="fas fa-images"></i>
-      <span>Galeri</span>
-    </a>
+    
 
     <a href="<?= APP_URL ?>/admin-ab/modules/settings/index.php" class="nav-item <?= isActive('settings') ?>">
       <i class="fas fa-cog"></i>
@@ -121,10 +118,7 @@ try {
   </nav>
 
   <div class="sidebar-footer">
-    <a href="<?= APP_URL ?>/" target="_blank" class="nav-item" style="margin-bottom:6px;">
-      <i class="fas fa-external-link-alt"></i>
-      <span>Lihat Website</span>
-    </a>
+    
     <a href="<?= APP_URL ?>/admin-ab/logout.php" class="nav-item" style="color:#f87171;">
       <i class="fas fa-sign-out-alt"></i>
       <span>Keluar</span>

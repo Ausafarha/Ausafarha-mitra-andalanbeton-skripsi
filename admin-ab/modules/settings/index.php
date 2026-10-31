@@ -2,116 +2,92 @@
 require_once __DIR__.'/../../../config/database.php';
 require_once __DIR__.'/../../../config/app.php';
 initSession(); requireLogin();
-$pageTitle='Pengaturan'; $pageSubtitle='Konfigurasi website perusahaan';
-$errors=[];
+
+$pageTitle = 'Pengaturan'; 
+$pageSubtitle = 'Konfigurasi sistem';
+$errors = [];
+$user = currentUser();
 $profile = Database::fetchOne("SELECT * FROM company_profile LIMIT 1") ?: [];
 
-if ($_SERVER['REQUEST_METHOD']==='POST') {
-    if (!verifyCsrf()){$errors[]='Token tidak valid.';}
-    else {
-        $tab = post('tab','company');
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verifyCsrf()) {
+        $errors[] = 'Token tidak valid.';
+    } else {
+        $tab = post('tab', 'logo');
 
-        if ($tab === 'company') {
-            $data = [
-                'company_name'    => post('company_name'),
-                'tagline'         => post('tagline'),
-                'description'     => post('description'),
-                'address'         => post('address'),
-                'city'            => post('city'),
-                'province'        => post('province'),
-                'postal_code'     => post('postal_code'),
-                'phone'           => post('phone'),
-                'whatsapp'        => post('whatsapp'),
-                'email'           => post('email'),
-                'website'         => post('website'),
-                'vision'          => post('vision'),
-                'mission'         => post('mission'),
-                'established_year'=> postInt('established_year'),
-                'total_employees' => postInt('total_employees'),
-                'total_projects'  => postInt('total_projects'),
-                'social_facebook' => post('social_facebook'),
-                'social_instagram'=> post('social_instagram'),
-                'social_youtube'  => post('social_youtube'),
-                'social_tiktok'   => post('social_tiktok'),
-                'maps_embed'      => post('maps_embed'),
-                'meta_title'      => post('meta_title'),
-                'meta_description'=> post('meta_description'),
-            ];
-
+        // === TAB LOGO ===
+        if ($tab === 'logo') {
             if (!empty($_FILES['logo']['name'])) {
-                $up = uploadImage($_FILES['logo'],'company');
+                $up = uploadImage($_FILES['logo'], 'company');
                 if ($up['success']) {
-                    if (!empty($profile['logo'])) deleteFile($profile['logo']);
-                    $data['logo'] = $up['filename'];
-                } else { $errors[] = $up['message']; }
-            }
-
-            if (empty($errors)) {
-                if ($profile) { Database::update('company_profile',$data,'id=?',[$profile['id']]); }
-                else { Database::insert('company_profile',$data); }
-                logActivity('update','settings','Memperbarui profil perusahaan');
-                setFlash('success','Pengaturan berhasil disimpan.');
-                redirect(APP_URL.'/admin-ab/modules/settings/index.php');
+                    // Hapus logo lama jika ada
+                    if (!empty($profile['logo'])) {
+                        deleteFile($profile['logo']);
+                    }
+                    
+                    // Simpan ke database
+                    if ($profile) {
+                        Database::update('company_profile', ['logo' => $up['filename']], 'id=?', [$profile['id']]);
+                    } else {
+                        // Jika belum ada data profil sama sekali, buat baru
+                        Database::insert('company_profile', [
+                            'company_name' => 'Andalan Beton',
+                            'logo' => $up['filename']
+                        ]);
+                    }
+                    logActivity('update', 'settings', 'Memperbarui logo perusahaan');
+                    setFlash('success', 'Logo perusahaan berhasil diperbarui.');
+                    redirect(APP_URL.'/admin-ab/modules/settings/index.php?tab=logo');
+                } else {
+                    $errors[] = $up['message'];
+                }
+            } else {
+                $errors[] = 'Pilih file gambar terlebih dahulu.';
             }
         }
 
-        if ($tab === 'password') {
+        // === TAB AKUN & KEAMANAN ===
+        if ($tab === 'account') {
+            $newUsername = post('new_username');
             $oldPass = $_POST['old_password'] ?? '';
             $newPass = $_POST['new_password'] ?? '';
             $conPass = $_POST['confirm_password'] ?? '';
-            $user = currentUser();
+            
             $dbUser = Database::fetchOne("SELECT * FROM users WHERE id=?",[$user['id']]);
-            if (!password_verify($oldPass,$dbUser['password'])) $errors[]='Password lama tidak sesuai.';
-            if (strlen($newPass)<6) $errors[]='Password baru minimal 6 karakter.';
-            if ($newPass!==$conPass) $errors[]='Konfirmasi password tidak cocok.';
+            
+            if (!password_verify($oldPass, $dbUser['password'])) {
+                $errors[] = 'Password lama tidak sesuai.';
+            }
+            
+            // Cek username unik
+            if (!empty($newUsername)) {
+                $exists = Database::fetchColumn("SELECT id FROM users WHERE username = ? AND id != ?", [$newUsername, $user['id']]);
+                if ($exists) $errors[] = 'Username sudah digunakan.';
+            }
+            
+            if (!empty($newPass) && $newPass !== $conPass) {
+                $errors[] = 'Konfirmasi password tidak cocok.';
+            }
+            if (!empty($newPass) && strlen($newPass) < 6) {
+                $errors[] = 'Password baru minimal 6 karakter.';
+            }
+            
             if (empty($errors)) {
-                Database::update('users',['password'=>password_hash($newPass,PASSWORD_DEFAULT)],'id=?',[$user['id']]);
-                logActivity('update','settings','Mengubah password');
-                setFlash('success','Password berhasil diubah.');
-                redirect(APP_URL.'/admin-ab/modules/settings/index.php?tab=password');
+                $updateData = ['username' => $newUsername];
+                if (!empty($newPass) && strlen($newPass) >= 6) {
+                    $updateData['password'] = password_hash($newPass, PASSWORD_DEFAULT);
+                }
+                Database::update('users', $updateData, 'id=?', [$user['id']]);
+                logActivity('update', 'settings', 'Mengubah username/password');
+                setFlash('success', 'Akun berhasil diperbarui.');
+                redirect(APP_URL.'/admin-ab/modules/settings/index.php?tab=account');
             }
         }
-        if ($tab === 'account') {
-    $newUsername = post('new_username');
-    $oldPass = $_POST['old_password'] ?? '';
-    $newPass = $_POST['new_password'] ?? '';
-    $conPass = $_POST['confirm_password'] ?? '';
-    $user = currentUser();
-    $dbUser = Database::fetchOne("SELECT * FROM users WHERE id=?",[$user['id']]);
-    
-    if (!password_verify($oldPass, $dbUser['password'])) {
-        $errors[] = 'Password lama tidak sesuai.';
-    }
-    
-    // Cek username unik
-    if (!empty($newUsername)) {
-        $exists = Database::fetchColumn("SELECT id FROM users WHERE username = ? AND id != ?", [$newUsername, $user['id']]);
-        if ($exists) $errors[] = 'Username sudah digunakan.';
-    }
-    
-    if (!empty($newPass) && $newPass !== $conPass) {
-        $errors[] = 'Konfirmasi password tidak cocok.';
-    }
-    if (!empty($newPass) && strlen($newPass) < 6) {
-        $errors[] = 'Password baru minimal 6 karakter.';
-    }
-    
-    if (empty($errors)) {
-        $updateData = ['username' => $newUsername];
-        if (!empty($newPass) && strlen($newPass) >= 6) {
-            $updateData['password'] = password_hash($newPass, PASSWORD_DEFAULT);
-        }
-        Database::update('users', $updateData, 'id=?', [$user['id']]);
-        logActivity('update', 'settings', 'Mengubah username/password');
-        setFlash('success', 'Akun berhasil diperbarui.');
-        redirect(APP_URL.'/admin-ab/modules/settings/index.php?tab=account');
-    }
-}
     }
 }
 
 $profile = Database::fetchOne("SELECT * FROM company_profile LIMIT 1") ?: [];
-$activeTab = get('tab','company');
+$activeTab = get('tab','logo');
 include __DIR__.'/../../partials/head.php';
 ?>
 <div class="admin-wrapper">
@@ -120,103 +96,50 @@ include __DIR__.'/../../partials/head.php';
 <?php include __DIR__.'/../../partials/topbar.php'; ?>
 <div class="page-body">
 
-<div class="section-header mb-20"><h2>Pengaturan Sistem</h2><p>Kelola informasi perusahaan dan konfigurasi website</p></div>
+<div class="section-header mb-20"><h2>Pengaturan Sistem</h2><p>Kelola logo dan keamanan akun Anda</p></div>
 
 <?php foreach($errors as $e):?><div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> <?=htmlspecialchars($e)?></div><?php endforeach;?>
 
 <!-- Tabs -->
-<!-- Tabs -->
 <div style="display:flex;gap:6px;margin-bottom:20px;border-bottom:1.5px solid var(--border);padding-bottom:0;">
   <?php foreach([
-    'company'=>'🏢 Profil Perusahaan',
-    'account'=>'👤 Akun & Keamanan',
-    
+    'logo'=>'🖼️ Logo Perusahaan',
+    'account'=>'👤 Akun & Keamanan'
   ] as $tab=>$lbl):?>
   <a href="?tab=<?=$tab?>" style="padding:10px 18px;border-radius:var(--radius-md) var(--radius-md) 0 0;font-size:13.5px;font-weight:600;text-decoration:none;border:1.5px solid <?=$activeTab===$tab?'var(--border) var(--border) var(--bg-surface)':'transparent'?>;background:<?=$activeTab===$tab?'var(--bg-surface)':'transparent'?>;color:<?=$activeTab===$tab?'var(--brand-600)':'var(--text-secondary)'?>;margin-bottom:-1.5px;"><?=$lbl?></a>
   <?php endforeach;?>
 </div>
 
-<?php if($activeTab==='company'):?>
-<form method="POST" enctype="multipart/form-data">
-  <?=csrfField()?><input type="hidden" name="tab" value="company">
-  <div class="grid" style="grid-template-columns:2fr 1fr;gap:20px;">
-    <div>
-      <div class="card mb-20">
-        <div class="card-header"><div class="card-title">Identitas Perusahaan</div></div>
-        <div class="card-body">
-          <div class="form-group"><label class="form-label">Nama Perusahaan <span>*</span></label><input type="text" name="company_name" class="form-control" value="<?=htmlspecialchars($profile['company_name']??'')?>" required></div>
-          <div class="form-group"><label class="form-label">Tagline</label><input type="text" name="tagline" class="form-control" value="<?=htmlspecialchars($profile['tagline']??'')?>"></div>
-          <div class="form-group"><label class="form-label">Deskripsi Perusahaan</label><textarea name="description" class="form-control" rows="4"><?=htmlspecialchars($profile['description']??'')?></textarea></div>
-          <div class="grid grid-2">
-            <div class="form-group"><label class="form-label">Tahun Berdiri</label><input type="number" name="established_year" class="form-control" value="<?=$profile['established_year']??2010?>"></div>
-            <div class="form-group"><label class="form-label">Jumlah Karyawan Profesional</label><input type="number" name="total_employees" class="form-control" value="<?=$profile['total_employees']??50?>"></div>
-            <div class="form-group"><label class="form-label">Proyek Selesai</label><input type="number" name="total_projects" class="form-control" value="<?=$profile['total_projects']??50?>"></div>
+<?php if($activeTab==='logo'):?>
+<div class="card" style="max-width:500px;">
+  <div class="card-header"><div class="card-title">Logo Perusahaan</div></div>
+  <div class="card-body">
+    <form method="POST" enctype="multipart/form-data">
+      <?=csrfField()?>
+      <input type="hidden" name="tab" value="logo">
+      
+      <div style="text-align:center; margin-bottom: 20px;">
+        <?php if(!empty($profile['logo'])):?>
+          <img id="logo-preview" src="<?=uploadUrl($profile['logo'])?>" style="max-width:180px; max-height:180px; object-fit:contain; border-radius:8px; border: 1px solid var(--border); padding: 10px; background: var(--bg-surface);">
+        <?php else:?>
+          <div style="width:120px; height:120px; margin:0 auto; border-radius:50%; background:var(--bg-muted); display:flex; align-items:center; justify-content:center; font-size:36px; font-weight:800; color:var(--brand-500);">
+            AB
           </div>
-          <div class="form-group"><label class="form-label">Visi</label><textarea name="vision" class="form-control" rows="3"><?=htmlspecialchars($profile['vision']??'')?></textarea></div>
-          <div class="form-group"><label class="form-label">Misi</label><textarea name="mission" class="form-control" rows="5"><?=htmlspecialchars($profile['mission']??'')?></textarea></div>
-        </div>
+        <?php endif;?>
       </div>
-      <div class="card mb-20">
-        <div class="card-header"><div class="card-title">Kontak & Alamat</div></div>
-        <div class="card-body">
-          <div class="form-group"><label class="form-label">Alamat Lengkap</label><textarea name="address" class="form-control" rows="3"><?=htmlspecialchars($profile['address']??'')?></textarea></div>
-          <div class="grid grid-2">
-            <div class="form-group"><label class="form-label">Kota</label><input type="text" name="city" class="form-control" value="<?=htmlspecialchars($profile['city']??'')?>"></div>
-            <div class="form-group"><label class="form-label">Provinsi</label><input type="text" name="province" class="form-control" value="<?=htmlspecialchars($profile['province']??'')?>"></div>
-          </div>
-          <div class="grid grid-2">
-            <div class="form-group"><label class="form-label">Nomor Telepon</label><input type="text" name="phone" class="form-control" value="<?=htmlspecialchars($profile['phone']??'')?>"></div>
-            <div class="form-group"><label class="form-label">WhatsApp</label><input type="text" name="whatsapp" class="form-control" value="<?=htmlspecialchars($profile['whatsapp']??'')?>"></div>
-          </div>
-          <div class="grid grid-2">
-            <div class="form-group"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="<?=htmlspecialchars($profile['email']??'')?>"></div>
-            <div class="form-group"><label class="form-label">Google Maps Embed URL</label><input type="text" name="maps_embed" class="form-control" value="<?=htmlspecialchars($profile['maps_embed']??'')?>" placeholder="https://maps.google.com/maps?..."></div>
-          </div>
-          
-          </div>
+
+      <div class="upload-area" onclick="document.getElementById('logo-input').click()" style="margin-bottom:16px;">
+        <i class="fas fa-cloud-upload-alt" style="font-size:24px;color:var(--brand-500);"></i>
+        <div style="font-size:13px; margin-top:6px; font-weight:600;">Klik untuk pilih gambar</div>
+        <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Format: JPG, PNG, WebP (Maks 5MB)</div>
       </div>
-      <div class="card mb-20">
-        <div class="card-header"><div class="card-title">Media Sosial</div></div>
-        <div class="card-body">
-          <div class="form-group"><label class="form-label"><i class="fab fa-facebook" style="color:#1877f2;"></i> Facebook</label><input type="url" name="social_facebook" class="form-control" value="<?=htmlspecialchars($profile['social_facebook']??'')?>"></div>
-          <div class="form-group"><label class="form-label"><i class="fab fa-instagram" style="color:#e1306c;"></i> Instagram</label><input type="url" name="social_instagram" class="form-control" value="<?=htmlspecialchars($profile['social_instagram']??'')?>"></div>
-          <div class="form-group"><label class="form-label"><i class="fab fa-youtube" style="color:#ff0000;"></i> YouTube</label><input type="url" name="social_youtube" class="form-control" value="<?=htmlspecialchars($profile['social_youtube']??'')?>"></div>
-         <div class="form-group">
-    <label class="form-label"><i class="fab fa-tiktok" style="color:#000;"></i> TikTok</label>
-    <input type="url" name="social_tiktok" class="form-control" 
-           value="<?= htmlspecialchars($profile['social_tiktok'] ?? '') ?>" 
-           placeholder="https://www.tiktok.com/@username">
-</div>
-        </div>
-      </div>
-    </div>
-    <div>
-      <div class="card mb-20">
-        <div class="card-header"><div class="card-title">Logo Perusahaan</div></div>
-        <div class="card-body">
-          <?php if(!empty($profile['logo'])):?>
-            <img id="logo-preview" src="<?=uploadUrl($profile['logo'])?>" style="max-width:160px;border-radius:8px;margin-bottom:12px;display:block;">
-          <?php else:?>
-            <img id="logo-preview" style="display:none;max-width:160px;border-radius:8px;margin-bottom:12px;">
-          <?php endif;?>
-          <div class="upload-area" onclick="document.getElementById('logo-input').click()">
-            <i class="fas fa-image" style="font-size:22px;color:var(--text-muted);"></i>
-            <div style="font-size:13px;margin-top:6px;"><?=!empty($profile['logo'])?'Ganti logo':'Upload logo'?></div>
-          </div>
-          <input type="file" id="logo-input" name="logo" accept="image/*" style="display:none;" data-preview-target="logo-preview">
-        </div>
-      </div>
-      <div class="card mb-20">
-        <div class="card-header"><div class="card-title">SEO</div></div>
-        <div class="card-body">
-          <div class="form-group"><label class="form-label">Meta Title</label><input type="text" name="meta_title" class="form-control" value="<?=htmlspecialchars($profile['meta_title']??'')?>"></div>
-          <div class="form-group"><label class="form-label">Meta Description</label><textarea name="meta_description" class="form-control" rows="4"><?=htmlspecialchars($profile['meta_description']??'')?></textarea></div>
-        </div>
-      </div>
-    </div>
+      
+      <input type="file" id="logo-input" name="logo" accept="image/*" style="display:none;" required onchange="previewImage(this)">
+      
+      <button type="submit" class="btn btn-primary w-100"><i class="fas fa-save"></i> Simpan Logo</button>
+    </form>
   </div>
-  <div style="margin-top:8px;"><button type="submit" class="btn btn-primary btn-lg"><i class="fas fa-save"></i> Simpan Pengaturan</button></div>
-</form>
+</div>
 <?php endif;?>
 
 <?php if($activeTab==='account'):?>
@@ -252,3 +175,23 @@ include __DIR__.'/../../partials/head.php';
 
 </div>
 <?php include __DIR__.'/../../partials/footer.php'; ?>
+
+<script>
+function previewImage(input) {
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            let preview = document.getElementById('logo-preview');
+            if (!preview) {
+                // Jika sebelumnya kotak AB, ganti dengan tag img
+                const container = input.parentElement.querySelector('div[style*="text-align:center"]');
+                container.innerHTML = '<img id="logo-preview" style="max-width:180px; max-height:180px; object-fit:contain; border-radius:8px; border: 1px solid var(--border); padding: 10px; background: var(--bg-surface);">';
+                preview = document.getElementById('logo-preview');
+            }
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        }
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+</script>
